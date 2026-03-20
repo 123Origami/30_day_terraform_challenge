@@ -1,31 +1,31 @@
 #indicates the cloud service that I am using for this challenge
-provider "aws" {
-  region = "eu-north-1"
-  #credentials set in environment variables for security
-}
+#provider "aws" {
+# region = var.aws_region
+#credentials set in environment variables for security
+#}
 
 #security group block, acts as a firewall for our ec2 instance
 
 resource "aws_security_group" "web_server_sg" {
-  name        = "day_3 web server sg"
+  name        = "${var.environment}-web-server_sg"
   description = "allow http traffic into web server"
 
   #inbound rule: allow port 80 from anywhere
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = var.server_port
+    to_port     = var.server_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #anyone can access
+    cidr_blocks = var.http_cidr_blocks #anyone can access
   }
 
   #inbound rule: allow ssh for debugging
 
   ingress {
     description = "SSH from internet"
-    from_port   = 22
-    to_port     = 22
+    from_port   = var.ssh_port
+    to_port     = var.ssh_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # In production, restrict to your IP!
+    cidr_blocks = var.ssh_cidr_blocks # In production, restrict to your IP!
   }
 
   # outbound rule:allow all outbound traffic
@@ -37,8 +37,10 @@ resource "aws_security_group" "web_server_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = {
-    Name = "day-3-web-server-sg"
-    Day  = 3
+    Name        = "${var.environment}-web-server-sg"
+    Environment = var.environment
+    Project     = var.project_name
+    Day         = "4"
   }
 
 }
@@ -63,7 +65,7 @@ data "aws_ami" "amazon_linux_2" {
 # the actual server
 resource "aws_instance" "web_server" {
   ami           = data.aws_ami.amazon_linux_2.id
-  instance_type = "t3.micro"
+  instance_type = var.instance_type
   # Attach the security group created above
   vpc_security_group_ids = [aws_security_group.web_server_sg.id]
 
@@ -180,15 +182,17 @@ output "web_server_public_ip" {
 
 output "web_server_url" {
   description = "URL to access the web server"
-  value       = "http://${aws_instance.web_server.public_ip}"
+  value       = "http://${aws_instance.web_server.public_ip}:${var.server_port}"
 }
+
+output "ssh_connection_command" {
+  description = "Command to SSH into the server"
+  value       = "ssh -p ${var.ssh_port} ec2-user@${aws_instance.web_server.public_ip}"
+}
+
 
 output "instance_id" {
   description = "ID of the EC2 instance"
   value       = aws_instance.web_server.id
 }
 
-output "ssh_connection_command" {
-  description = "Command to SSH into the server (if needed)"
-  value       = "ssh ec2-user@${aws_instance.web_server.public_ip}"
-}

@@ -201,6 +201,7 @@ resource "aws_lb" "web" {
   tags = {
     Environment = var.environment
     Project     = var.project_name
+    Day         = "5"
   }
 }
 
@@ -219,6 +220,8 @@ resource "aws_lb_target_group" "web" {
     interval            = 30
     path                = "/"
     port                = var.server_port
+    protocol            = "HTTP"
+    matcher             = "200"
   }
 
   tags = {
@@ -303,4 +306,25 @@ output "asg_info" {
 output "availability_zones_used" {
   description = "Availability zones where instances are deployed"
   value       = data.aws_availability_zones.available.names
+}
+
+# Data source to count running instances
+data "aws_instances" "web_instances" {
+  depends_on = [aws_autoscaling_group.web]
+
+  filter {
+    name   = "tag:Environment"
+    values = [var.environment]
+  }
+
+  filter {
+    name   = "instance-state-name"
+    values = ["running"]
+  }
+}
+
+# Output for instance count - shows scaling is working
+output "running_instances_count" {
+  description = "Number of running instances"
+  value       = length(data.aws_instances.web_instances.ids)
 }
